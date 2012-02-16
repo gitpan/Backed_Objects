@@ -9,11 +9,11 @@ Backed_Objects - Create static files from a database.
 
 =head1 VERSION
 
-Version 1.0
+Version 1.1
 
 =cut
 
-our $VERSION = '1.0';
+our $VERSION = '1.1';
 
 =head1 SYNOPSIS
 
@@ -51,13 +51,13 @@ Examples below assume that you are familiar with SQL and C<DBI> module.
 The class C<Backed_Objects> offers you flexibility on the way how you
 update your database.
 
-One variant is to override C<do_insert>, C<do_update>, C<do_delete> methods,
+One variant is to override C<do_insert>, C<do_update>, C<do_delete>, C<post_process> methods,
 so that they will update your database when C<insert>, C<update>, C<delete>
 methods are called.
 
 The other variant is to update the database yourself and I<afterward>
 to call C<insert>, C<update>, C<delete> which will call the default
-do-nothing C<do_insert>, C<do_update>, C<do_delete> methods.
+do-nothing C<do_insert>, C<do_update>, C<do_delete>, C<post_process> methods.
 
 =head1 The object and the ID
 
@@ -125,7 +125,7 @@ This abstract method should return an object from the DB having a given ID.
 
   sub do_select {
     my ($self, $id) = @_;
-    return $dbh->selectcol_arrayref("SELECT * FROM table WHERE id=?", undef, $id);
+    return $dbh->selectrow_hashref("SELECT * FROM table WHERE id=?", undef, $id);
   }
 
 or
@@ -157,7 +157,7 @@ sub select {
   return $self->do_select($id);
 }
 
-=head2 do_insert, do_update, do_delete
+=head2 do_insert, do_update, do_delete, post_process
 
 By default these methods do nothing. (In this case you need to update database
 yourself, before calling C<insert>, C<update>, or C<delete> methods.)
@@ -166,16 +166,17 @@ You may override these methods to do database updates:
 
   sub do_insert {
     my ($self, $obj) = @_;
-    my @keys = keys @$obj;
-    my @values = values @$obj;
+    my @keys = keys %$obj;
+    my @values = values %$obj;
     my $set = join ', ', map { "$_=?" } @keys;
     $dbh->do("INSERT table SET $set", undef, @values);
+    $obj->{id} = $dbh->last_insert_id(undef, undef, undef, undef);
   }
 
   sub do_update {
     my ($self, $obj) = @_;
-    my @keys = keys @$obj;
-    my @values = values @$obj;
+    my @keys = keys %$obj;
+    my @values = values %$obj;
     my $set = join ', ', map { "$_=?" } @keys;
     $dbh->do("UPDATE table SET $set WHERE id=?", undef, @values, $obj->{id});
   }
@@ -185,11 +186,26 @@ You may override these methods to do database updates:
     $dbh->do("DELETE FROM table WHERE id=?", undef, @values, $id);
   }
 
+  sub post_process {
+    my ($self, $obj) = @_;
+    ...
+  }
+
+C<do_insert> should set object ID after it is saved into the database.
+
+C<post_process> is called by C<insert> after the object is inserted into
+the database (and the object ID is set). It can be used for amending the
+object with operations which require some object ID, for example for
+uploading files into a folder with name being based on the ID.
+
+C<post_process> is also called by C<update>.
+
 =cut
 
 sub do_insert { }
 sub do_update { }
 sub do_delete { }
+sub post_process { }
 
 =head2 outputter
 
@@ -231,6 +247,8 @@ updating the view.
 Note that C<insert> methods calls both C<on_update> and C<on_insert> methods
 (as well as some other methods, see the source).
 
+C<insert> and C<update> also call C<post_process>.
+
 =cut
 
 # Calls both on_update() and on_insert()
@@ -238,6 +256,7 @@ sub insert {
   my ($self, $obj) = @_;
   die "Inserting an object into DB second time!" if $self->id($obj);
   $self->do_insert($obj);
+  $self->post_process($obj);
   $self->on_insert($obj);
   $self->on_update($obj);
   $self->on_order_change;
@@ -248,6 +267,7 @@ sub update {
   my ($self, $obj) = @_;
   die "Updating an object not in DB!" unless $self->id($obj);
   $self->do_update($obj);
+  $self->post_process($obj);
   $self->on_update($obj);
   $self->on_any_change;
 }
