@@ -9,11 +9,11 @@ Backed_Objects - Create static files from a database.
 
 =head1 VERSION
 
-Version 1.1
+Version 1.11
 
 =cut
 
-our $VERSION = '1.1';
+our $VERSION = '1.11';
 
 =head1 SYNOPSIS
 
@@ -41,7 +41,7 @@ Thus the following alternatives are possible:
 
 or
 
-  my $obj = new HTML_DB;
+  my $obj = HTML_DB->new;
   $obj->output_all_and_order;
 
 Examples below assume that you are familiar with SQL and C<DBI> module.
@@ -249,6 +249,10 @@ Note that C<insert> methods calls both C<on_update> and C<on_insert> methods
 
 C<insert> and C<update> also call C<post_process>.
 
+C<update> also calls C<before_update> before calling C<do_update>.
+The C<before_update> method can be used to update the data based on
+old data in the DB, before the DB is updated by C<do_update>.
+
 =cut
 
 # Calls both on_update() and on_insert()
@@ -266,6 +270,7 @@ sub insert {
 sub update {
   my ($self, $obj) = @_;
   die "Updating an object not in DB!" unless $self->id($obj);
+  $self->before_update($obj);
   $self->do_update($obj);
   $self->post_process($obj);
   $self->on_update($obj);
@@ -295,7 +300,7 @@ sub on_update {
   $self->output(scalar($self->outputter), $obj);
 }
 
-=head2 on_insert, on_delete, on_order_change
+=head2 on_insert, on_delete, on_order_change, before_update
 
   sub on_insert {
     my ($self, $obj) = @_;
@@ -312,6 +317,11 @@ sub on_update {
     ...
   }
 
+  sub before_update {
+    my ($self, $obj) = @_;
+    ...
+  }
+
 These methods (doing nothing by default) are called correspondingly when:
 
 =over
@@ -322,11 +332,16 @@ These methods (doing nothing by default) are called correspondingly when:
 
 =item changing order of objects in the database (including the case of inserting a new object).
 
+=item before calling C<do_update> to update the database.
+
 =back
 
 By default these methods do nothing.
 
 You may update your view in your overrides of these methods.
+
+C<before_update> is called by C<update> (but not by C<insert>) before updating
+the DB with C<do_update>.
 
 =cut
 
