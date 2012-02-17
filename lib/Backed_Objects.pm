@@ -9,11 +9,11 @@ Backed_Objects - Create static files from a database.
 
 =head1 VERSION
 
-Version 1.13
+Version 1.14
 
 =cut
 
-our $VERSION = '1.13';
+our $VERSION = '1.14';
 
 =head1 SYNOPSIS
 
@@ -285,17 +285,29 @@ sub delete {
   $self->on_any_change;
 }
 
-=head2 on_update
+=head2 on_update, on_update_one
 
 C<on_update> method it called when an object in the database is updated or after
 a new object is inserted.
 
-By default C<on_update> calls the C<output> method to update the view of the
+C<on_update_one> is the method called by C<on_update>. The C<on_update_one>
+method is meant to update view of one object. Contrary to this, C<on_update>
+may be overridden to update several objects by calling C<on_update_one> several
+times. For example, when updating title of a HTML file, we may want to update
+two more HTML files with titles of prev/next links dependent on the title of
+this object.
+
+By default C<on_update_one> calls the C<output> method to update the view of the
 object.
 
 =cut
 
 sub on_update {
+  my ($self, $obj) = @_;
+  $self->on_update_one($obj);
+}
+
+sub on_update_one {
   my ($self, $obj) = @_;
   $self->output(scalar($self->outputter), $obj);
 }

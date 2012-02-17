@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Backed_Objects
-version:            1.13
+version:            1.14
 abstract:           Create static files from a database.
 author:
     - Victor Porton <porton@narod.ru>
