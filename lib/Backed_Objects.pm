@@ -9,11 +9,11 @@ Backed_Objects - Create static files from a database.
 
 =head1 VERSION
 
-Version 1.11
+Version 1.13
 
 =cut
 
-our $VERSION = '1.11';
+our $VERSION = '1.13';
 
 =head1 SYNOPSIS
 
@@ -183,7 +183,7 @@ You may override these methods to do database updates:
 
   sub do_delete {
     my ($self, $id) = @_;
-    $dbh->do("DELETE FROM table WHERE id=?", undef, @values, $id);
+    $dbh->do("DELETE FROM table WHERE id=?", undef, $id);
   }
 
   sub post_process {
@@ -348,6 +348,7 @@ the DB with C<do_update>.
 sub on_insert { }
 sub on_delete { }
 sub on_order_change { }
+sub before_update { }
 
 =head2 on_any_change
 
